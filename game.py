@@ -5,7 +5,7 @@ pygame.init()
 SCREEN_WIDTH =1200
 SCREEN_HEIGHT=700
 
-screen = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
+SCREEN = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
 pygame.display.set_caption('War Game')
 clock = pygame.time.Clock()
 
@@ -16,6 +16,7 @@ RED = (255,0,0)
 
 # yer çekimi tanımlaması
 GRAVITY = 0.75
+TILE_SIZE = 40
 
 #Arka plan görüntüsü ayarı
 background_img = pygame.image.load(os.path.join('Assets', 'background.jpg'))
@@ -28,27 +29,36 @@ robot_moving_left = False
 robot_moving_right = False
 soldier_shoot = False
 robot_shoot = False
+secondGun_robot = False
+secondGun_soldier = False
+secondGun_soldier_thrown = False
+secondGun_robot_thrown = False
 
 #mermi resmi yüklenmesi
 robot_bullet = pygame.image.load(os.path.join('Assets/icons/robot_bullet.png')).convert_alpha()
-soldier_bullet = pygame.image.load(os.path.join('Assets/icons/soldier_bullet.png'))
+soldier_bullet = pygame.image.load(os.path.join('Assets/icons/soldier_bullet.png')).convert_alpha()
+grenade_img = pygame.image.load(os.path.join('Assets/icons/grenade.png')).convert_alpha()
+grenade_img = pygame.transform.scale(grenade_img, (12, 12))
+bomb_robot_img = pygame.image.load(os.path.join('Assets/icons/robot_bomb.png')).convert_alpha()
+bomb_robot_img = pygame.transform.scale(bomb_robot_img, (15, 15))
 
-
-soldier_width, soldier_height = 60, 40  #
+character_width, character_height = 60, 40  #
 class Soldier(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kullanılacak
-    def __init__(self, konumX,konumY,character_type,speed,position,bullet_image,ammo):
+    def __init__(self, konumX,konumY,character_type,speed,position,direction,bullet_image,ammo,grenades,grenade_image):
         pygame.sprite.Sprite.__init__(self)
         self.character_type=character_type
         self.bullet_image=bullet_image
+        self.grenades_image = grenade_image
         self.alive = True
         self.speed= speed
         self.ammo = ammo
         self.start_ammo = ammo
+        self.grenades = grenades
         self.shoot_cooldown = 0
         self.health = 100
         self.max_health = self.health
         self.position = position #başlangıç pozisyonu
-        self.direction = 1
+        self.direction = direction
         self.velocity_y = 0 # y eksenindeki hız zıplamak için
         self.jump = False # oyuncu en başta hareketsiz olduğu için False olarak başlatıyorum
         self.in_air= True # buradaki düşüncem yere inene kadar karakteri havada sayıyorum
@@ -66,13 +76,13 @@ class Soldier(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kullan
             num_of_files = len(os.listdir(f'Assets/{self.character_type}/{animation}'))
             for i in range(num_of_files):
                 # Asker durma durumu animasyonu
-                SOLDIER = pygame.image.load(os.path.join(f'Assets/{self.character_type}/{animation}/{i}.png')).convert_alpha() #convert_alpha'nın eklenme amacı verimliliği arttırmak
-                SOLDIER = pygame.transform.scale(SOLDIER, (soldier_width, soldier_height))
-                temp_list.append(SOLDIER)
+                CHARACTER = pygame.image.load(os.path.join(f'Assets/{self.character_type}/{animation}/{i}.png')).convert_alpha() #convert_alpha'nın eklenme amacı verimliliği arttırmak
+                CHARACTER = pygame.transform.scale(CHARACTER, (character_width, character_height))
+                temp_list.append(CHARACTER)
             self.animation_list.append(temp_list) # geçici listeyi animasyon listesine ekledim
 
-        self.SOLDIER_IMAGE = self.animation_list[self.action][self.index]
-        self.rect = self.SOLDIER_IMAGE.get_rect()
+        self.CHARACTER_IMAGE = self.animation_list[self.action][self.index]
+        self.rect = self.CHARACTER_IMAGE.get_rect()
         self.rect.center = (konumX, konumY)
 
     def update(self):
@@ -160,7 +170,10 @@ class Soldier(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kullan
             self.update_action(3)
 
     def draw(self): #self default gelmek zorunda
-        screen.blit(pygame.transform.flip(self.SOLDIER_IMAGE, self.position,False), self.rect)
+        SCREEN.blit(pygame.transform.flip(self.SOLDIER_IMAGE, self.position,False), self.rect)
+
+
+
 
 
 class Bullet(pygame.sprite.Sprite):
@@ -187,13 +200,85 @@ class Bullet(pygame.sprite.Sprite):
                 robot.health -= 10 # merminin robot'a vereceği hasar
                 self.kill()
 
+class SecondGun(pygame.sprite.Sprite):
+    def __init__(self,x,y,direction,image):
+        pygame.sprite.Sprite.__init__(self)
+        self.timer = 100
+        self.velocity_y = -9
+        self.speed = 7
+        self.image= image
+        self.rect = self.image.get_rect() #imagein boyutunda olucak
+        self.rect.center = (x,y)
+        self.direction = direction #yön bazı mermiler sağa bazı mermiler sola gidecek bu karakterin hangi tarafa baktığına bağlı olacak
+
+    def update(self):
+        self.velocity_y += GRAVITY # hızını yer çekimi ile toplayıp yer çekimini sağlıyorum
+        dx = self.direction * self.speed
+        dy = self.velocity_y
+
+        # Zemin ile çarpışma kontrolü
+        if self.rect.bottom + dy > 300:
+            dy = 300 - self.rect.bottom
+            self.speed =0
+
+        # bombanın yere düştüğünde yok olma kontrolü
+        if self.rect.left + dx < 0 or self.rect.right + dx> SCREEN_WIDTH:
+            self.direction *= -1  # duvara çarptığında geri sekmesini sağlıyorum
+            dx = self.direction * self.speed
+
+        # bombanın yerdeğişimi
+        self.rect.x += dx
+        self.rect.y += dy
+
+        #bombanın geri sayım sayacı
+        self.timer -=1
+        if self.timer <=0:
+            self.kill()
+            explosion = Explosion(self.rect.x, self.rect.y, 0.5) #explosion ve secondGun ile aralarındaki bağlantıyı kuruyorum
+            explosion_group.add(explosion)
+            # bombaların hasar vermesi
+            if abs(self.rect.centerx - soldier.rect.centerx) < TILE_SIZE * 2 and \
+                    abs(self.rect.centery - soldier.rect.centery) < TILE_SIZE * 2: #bombanın bulunduğu konum ile askeri bulunduğu konum arasındaki fark 2 karodan den küçük ise hasar alıcak
+                soldier.health -= 50
+            if abs(self.rect.centerx - robot.rect.centerx) < TILE_SIZE * 2 and \
+                    abs(self.rect.centery - robot.rect.centery) < TILE_SIZE * 2: #bombanın bulunduğu konum ile askeri bulunduğu konum arasındaki fark 2 karodan den küçük ise hasar alıcak
+                robot.health -= 50
+
+class Explosion(pygame.sprite.Sprite):
+    def __init__(self,x,y,scale):
+        pygame.sprite.Sprite.__init__(self)
+        self.images = []
+        for num in range(0,6):
+            img = pygame.image.load(os.path.join(f'Assets/icons/explosion/{num}.png')).convert_alpha()
+            img = pygame.transform.scale(img, (int(img.get_width() * scale),int(img.get_height() *scale)))
+            self.images.append(img)
+        self.index = 0
+        self.image= self.images[self.index]
+        self.rect = self.image.get_rect() #imagein boyutunda olucak
+        self.rect.center = (x,y)
+        self.counter= 0
+
+    def update(self):
+        explosion_speed = 4
+        # patlama animasyonunun gerçekleştirilmesi
+        self.counter +=1
+        if self.counter >= explosion_speed: # eğer sayaç patlama hızını aştıysa sayacı sıfırlayıp image dizisinin indexini değiştiriz ki animasyon değişsin
+            self.counter = 0
+            self.index += 1
+            #animasyon tamamlandığında patlama animasyonunu ortadan kaldırma işlemi
+            if self.index >= len(self.images):
+                self.kill()
+            else:
+                self.image = self.images[self.index]
+
 # sprite grubu oluşturuldu (üretilen tüm mermi nesneleri bu grupda tutulacak)
 bullet_group = pygame.sprite.Group()
+secondGun_group = pygame.sprite.Group()
+explosion_group = pygame.sprite.Group()
 
 
-
-soldier=Soldier(200,200,'soldier',5,False,soldier_bullet,20) #200 200 konumunu gösteriyor (sınıfın nesnesi)
-robot=Soldier(400,200,'robot',5,True,robot_bullet,20)
+soldier=Soldier(200,200,'soldier',5,False,1,soldier_bullet,20,5,grenade_img) #200 200 konumunu gösteriyor (sınıfın nesnesi)
+robot=Soldier(400,200,'robot',5,True,-1,robot_bullet,20,5,bomb_robot_img)
 # # Robot görünütüsü ayarı
 
 # self.ROBOT = pygame.transform.scale(ROBOT_IMAGE, (warior_width, warior_height))
@@ -205,19 +290,31 @@ while run:
 
     clock.tick(FPS)
 
-    screen.blit(background_img_fix, (0, 0))  # (0,0) resmin konumlanacağı nokta
+    SCREEN.blit(background_img_fix, (0, 0))  # (0,0) resmin konumlanacağı nokta
 
-    pygame.draw.line(screen,RED,(0,300),(SCREEN_WIDTH,300))
+    pygame.draw.line(SCREEN,RED,(0,300),(SCREEN_WIDTH,300))
 
     soldier.update()
     soldier.draw()
 
     bullet_group.update()
-    bullet_group.draw(screen)
+    secondGun_group.update()
+    explosion_group.update()
+    bullet_group.draw(SCREEN)
+    secondGun_group.draw(SCREEN)
+    explosion_group.draw(SCREEN)
 
     if soldier.alive:
         if soldier_shoot:
             soldier.shoot()
+            # bomba fırlatma
+        elif secondGun_soldier and secondGun_soldier_thrown == False and soldier.grenades > 0:
+            secondGun_soldier = SecondGun(soldier.rect.centerx + (0.5 * soldier.rect.size[0] * soldier.direction), \
+                                        soldier.rect.top, soldier.direction,grenade_img)
+            secondGun_group.add(secondGun_soldier)
+            #bomba azaltma
+            soldier.grenades -= 1
+            secondGun_soldier_thrown = True
         if soldier.in_air:
             soldier.update_action(2)  # eğer 2 ise zıplıyor
         #hareket edildiyse actionu değiştir
@@ -234,6 +331,13 @@ while run:
     if robot.alive:
         if robot_shoot:
             robot.shoot()
+        #bomba fırlatma
+        elif secondGun_robot and secondGun_robot_thrown == False and robot.grenades > 0: # secondGun tanımlamamdaki sebep yeni bir bomba fırlatmadan önce zaten bir bomba fırlatılmış mı kontrolü ve explosion sayısı 0 dan büyükse fırlat kontrolü
+            secondGun_robot = SecondGun(robot.rect.centerx+(0.5 * robot.rect.size[0] * robot.direction), robot.rect.top,robot.direction ,bomb_robot_img)
+            secondGun_group.add(secondGun_robot)
+            # bomba azaltma
+            robot.grenades -= 1
+            secondGun_robot_thrown = True
         if robot.in_air:
             robot.update_action(2)  # eğer 2 ise zıplıyor
         #hareket edildiyse actionu değiştir
@@ -256,6 +360,8 @@ while run:
                 soldier_moving_right = True
             if event.key == pygame.K_LCTRL:
                 soldier_shoot = True
+            if event.key == pygame.K_LSHIFT:
+                secondGun_soldier = True
             if event.key == pygame.K_w and soldier.alive:
                 soldier.jump = True
 
@@ -265,8 +371,11 @@ while run:
                 robot_moving_right = True
             if event.key == pygame.K_RCTRL:
                 robot_shoot = True
+            if event.key == pygame.K_RSHIFT:
+                secondGun_robot = True
             if event.key == pygame.K_UP and robot.alive:
                 robot.jump = True
+
             if event.key == pygame.K_ESCAPE:
                 run = False
 
@@ -274,16 +383,28 @@ while run:
         if event.type ==pygame.KEYUP:
             if event.key == pygame.K_a:
                 soldier_moving_left = False
-            if event.key == pygame.K_LEFT:
-                robot_moving_left = False
-            if event.key == pygame.K_LCTRL:
-                soldier_shoot = False
             if event.key == pygame.K_d:
                 soldier_moving_right = False
+            if event.key == pygame.K_LCTRL:
+                soldier_shoot = False
+            if event.key == pygame.K_LSHIFT:
+                secondGun_soldier = False
+                secondGun_soldier_thrown = False
+
+            if event.key == pygame.K_LEFT:
+                robot_moving_left = False
             if event.key == pygame.K_RIGHT:
                 robot_moving_right = False
             if event.key == pygame.K_RCTRL:
                 robot_shoot = False
+            if event.key == pygame.K_RSHIFT:
+                secondGun_robot = False
+                secondGun_robot_thrown =False # bekleme süresi yerine tuştan el çekildiğinde tekrar fırlatabilmesi için fırlatma özelliğini false'a çetim
+
+
+
+
+
 
 
 
