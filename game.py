@@ -6,7 +6,7 @@ SCREEN_WIDTH =1200
 SCREEN_HEIGHT=600
 
 SCREEN = pygame.display.set_mode((SCREEN_WIDTH,SCREEN_HEIGHT))
-pygame.display.set_caption('War Game')
+pygame.display.set_caption('War Zone')
 
 clock = pygame.time.Clock()
 FPS =60
@@ -39,13 +39,14 @@ secondGun_robot_thrown = False
 
 start_img = pygame.image.load(os.path.join('Assets/start_button.png')).convert_alpha()
 exit_img = pygame.image.load(os.path.join('Assets/exit_button.png')).convert_alpha()
+restart_img = pygame.image.load(os.path.join('Assets/restart_button.png')).convert_alpha()
 
 #Arka plan görüntüsü ayarı
 background_img = pygame.image.load(os.path.join('Assets/background.jpg')).convert_alpha()
-background_img_fix = pygame.transform.scale(background_img, (1200, 700)).convert_alpha()
+background_img_fix = pygame.transform.scale(background_img, (1200, 600)).convert_alpha()
 
 # ekranı karelere bölme fonksiyonu
-# def draw_gird():
+# def draw_grid():
 #     for line in range(0,30):
 #         pygame.draw.line(SCREEN, (255, 255, 255), (0, line * SURFACE_SIZE), (SCREEN_WIDTH, line * SURFACE_SIZE))
 #         pygame.draw.line(SCREEN, (255, 255, 255), (line * SURFACE_SIZE, 0), (line * SURFACE_SIZE, SCREEN_HEIGHT))
@@ -57,7 +58,7 @@ class Map():
         ground2_img = pygame.image.load(os.path.join('Assets/ground2.png'))
 
         row_count = 0
-        for row in data:
+        for row in data: # satır satır geziyor her defada colonu artırıyor bir satır bittiğinde satırı arttırıp tekrar colon geziyor
             col_count = 0
             for surface in row:
                 if surface == 1:
@@ -101,7 +102,7 @@ ammo_box_img = pygame.transform.scale(ammo_box_img, (20, 20)).convert_alpha()
 bomb_box_img= pygame.image.load(os.path.join('Assets/icons/bomb.png')).convert_alpha()
 bomb_box_img = pygame.transform.scale(bomb_box_img, (20, 20)).convert_alpha()
 
-#python sözlük kullanımı buff box için
+#python sözlük kullanımı buff box için // javadaki enum gibi
 buff_boxes = {
     'Health'   : heal_box_img,
     'Ammo'     : ammo_box_img,
@@ -111,13 +112,14 @@ buff_boxes = {
 
 font = pygame.font.SysFont('Future', 30)
 
+
 def draw_text(text, font, text_col, x, y): # ekrana yazmak istediğim yazılar için kullanıyorum
     img = font.render(text, True, text_col)
     SCREEN.blit(img, (x,y))
 
 
 character_width, character_height = 60, 40
-class Character(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kullanılacak
+class Character(pygame.sprite.Sprite): #Character sınıfı tüm askerler için kullanılacak
     def __init__(self, konumX,konumY,character_type,speed,position,direction,bullet_image,ammo,grenades,grenade_image):
         pygame.sprite.Sprite.__init__(self)
         self.character_type=character_type
@@ -176,8 +178,9 @@ class Character(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kull
         #sağa ve sola hareket değerlerinin atanması
         if moving_left:
             dx = -self.speed #x ekseninde hız değeri azalarak sola gidiyor
-            self.position = True
+            self.position = True # yön değiştirme sola döndüğünde resimde sola dönüyor
             self.direction = -1
+            # print("sola hareket")
         if moving_right:
             dx = self.speed #x ekseninde hız değeri artırarak sağa gidiyor
             self.position = False
@@ -185,9 +188,10 @@ class Character(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kull
 
         #jump
         if self.jump == True and self.in_air == False:
-            self.velocity_y = -11 # zıplama değeri yukarı çıktıkça azalır
+            self.velocity_y = -11 # zıplama işlemi gerçekleştiğinde y ekseninde yükselmek için -li değer verildi
             self.jump = False
             self.in_air = True
+            # print("zıplama kontrolü")
 
         #Yerçekimi tanımlaması
         self.velocity_y += GRAVITY # y yüksekliği yavaş yavaş azalacak
@@ -195,17 +199,17 @@ class Character(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kull
             self.velocity_y
         dy += self.velocity_y # karkaterin y eksenini zıplama hızına göre değiştiriyorum
 
-        #Zemin ile çarpışma kontrolü
+        #Yüzey ile çarpışma kontrolü
         for surface in map.surface_list:
             # x yönünde çarpışma kontrolü
             if surface[1].colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
                 dx = 0
             # y yönünde çarpışma kontrolü
             if surface[1].colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
-                #yerin altında olup olmadığının kontrolü  zıplarken
+                #fayansların altında olup olmadığının kontrolü  zıplarken
                 if self.velocity_y <0:
                     self.velocity_y = 0
-                    dy = surface[1].bottom - self.rect.top # yüzeyler arası boşlukile karakterin kafası arasındaki boşluk
+                    dy = surface[1].bottom - self.rect.top # yüzeyler arası boşluk ile karakterin kafası arasındaki boşluk
                 #yerden yüksekte olup olmadığının kontrolü zıplarken
                 elif self.velocity_y >= 0:
                     self.velocity_y = 0
@@ -234,7 +238,7 @@ class Character(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kull
         if pygame.time.get_ticks() - self.update_time > ANIMATION_COOLDOWN:
             self.update_time = pygame.time.get_ticks()
             self.index += 1
-        #animasyon bittiyse, sıfırlamayı en başa döndürün yani sonsuz döngü
+        #animasyon bittiyse, sıfırlamayı en başa döndürür yani sonsuz döngü
         if self.index >= len(self.animation_list[self.action]):
             if self.action == 3: # ölüm animasyonu için tekrarlama yapmasını istemiyorum bu sebepten dolayı 3. argüman olduğunda döngüyü durdurucak
                 self.index = len(self.animation_list[self.action]) - 1
@@ -258,7 +262,7 @@ class Character(pygame.sprite.Sprite): #Asker sınıfı tüm askerler için kull
             self.alive = False
             self.update_action(3)
 
-    def draw(self): #self default gelmek zorunda
+    def draw(self):
         SCREEN.blit(pygame.transform.flip(self.SOLDIER_IMAGE, self.position,False), self.rect)
 
 class BuffBox(pygame.sprite.Sprite):
@@ -271,8 +275,8 @@ class BuffBox(pygame.sprite.Sprite):
 
     def update(self):
         #karakter ile kutuların çarpışma kontrolü
-        if pygame.sprite.collide_rect(self, soldier): # kutu ile soldierın çarpışma anını yakalamak istiyorum
-            #hangi kutu türü ile çarpışıldığını yakalamak istiyorum
+        if pygame.sprite.collide_rect(self, soldier): # kutu ile soldierın çarpışma anını yakalama
+            #hangi kutu türü ile çarpışıldığını yakalama
             if self.box_type == 'Health':
                 soldier.health +=25
                 if soldier.health > soldier.max_health:
@@ -283,9 +287,9 @@ class BuffBox(pygame.sprite.Sprite):
                 soldier.grenades +=3
             elif self.box_type == 'Defence':
                 soldier.health = soldier.max_health
-            self.kill()
-        if pygame.sprite.collide_rect(self, robot): # kutu ile soldierın çarpışma anını yakalamak istiyorum
-            #hangi kutu türü ile çarpışıldığını yakalamak istiyorum
+            self.kill() # çarpışmadan sonra kutuyu kaldır
+        if pygame.sprite.collide_rect(self, robot): # kutu ile robotun çarpışma anını yakalama
+            #hangi kutu türü ile çarpışıldığını yakalama
             if self.box_type == 'Health':
                 robot.health +=25
                 if robot.health > robot.max_health:
@@ -296,7 +300,7 @@ class BuffBox(pygame.sprite.Sprite):
                 robot.grenades +=3
             elif self.box_type == 'Defence':
                 robot.health = robot.max_health
-            self.kill()
+            self.kill() # çarpışmadan sonra kutuyu kaldır
 
 
 # sağlık bar sınıfı
@@ -339,13 +343,13 @@ class Bullet(pygame.sprite.Sprite):
         if pygame.sprite.spritecollide(robot, bullet_group , False):
             if robot.alive:
                 robot.health -= 10 # merminin robot'a vereceği hasar
-                self.kill()
+                self.kill() # görüntüyü yok ediyorum
 
 class SecondGun(pygame.sprite.Sprite):
     def __init__(self,x,y,direction,image):
         pygame.sprite.Sprite.__init__(self)
         self.timer = 100
-        self.velocity_y = -9
+        self.velocity_y = -9  # yukarı hızlanma - çünkü y ekseninde yukarı gidiyor
         self.speed = 7
         self.image= image
         self.rect = self.image.get_rect() #imagein boyutunda olucak
@@ -388,12 +392,12 @@ class SecondGun(pygame.sprite.Sprite):
             self.kill()
             explosion = Explosion(self.rect.x, self.rect.y, 0.5) #explosion ve secondGun ile aralarındaki bağlantıyı kuruyorum
             explosion_group.add(explosion)
-            # bombaların hasar vermesi
+            # bombaların hasar vermesi  #abs fonksiyonu mutlak değerini aldırıyor
             if abs(self.rect.centerx - soldier.rect.centerx) < SURFACE_SIZE * 2 and \
-                    abs(self.rect.centery - soldier.rect.centery) < SURFACE_SIZE * 2: #bombanın bulunduğu konum ile askeri bulunduğu konum arasındaki fark 2 karodan den küçük ise hasar alıcak
+                    abs(self.rect.centery - soldier.rect.centery) < SURFACE_SIZE * 2: #bombanın bulunduğu konum ile askeri bulunduğu konum arasındaki fark 2 karodan küçük ise hasar alıcak
                 soldier.health -= 50
             if abs(self.rect.centerx - robot.rect.centerx) < SURFACE_SIZE * 2 and \
-                    abs(self.rect.centery - robot.rect.centery) < SURFACE_SIZE * 2: #bombanın bulunduğu konum ile askeri bulunduğu konum arasındaki fark 2 karodan den küçük ise hasar alıcak
+                    abs(self.rect.centery - robot.rect.centery) < SURFACE_SIZE * 2: #bombanın bulunduğu konum ile askeri bulunduğu konum arasındaki fark 2 karodan küçük ise hasar alıcak
                 robot.health -= 50
 
 class Explosion(pygame.sprite.Sprite):
@@ -422,30 +426,66 @@ class Explosion(pygame.sprite.Sprite):
                 self.kill()
             else:
                 self.image = self.images[self.index]
+def restart_game():
+    start_game = False
+
+    soldier.alive = True
+    robot.alive = True
+    soldier.speed = 5
+    robot.speed = 5
+    soldier.update_action(0)
+    robot.update_action(0)
+    soldier.health = 100
+    robot.health = 100
+    soldier.ammo = 20
+    robot.ammo = 20
+    soldier.grenades = 5
+    robot.grenades = 5
+    soldier.rect.centerx = 90
+    soldier.rect.centery = 200
+    robot.rect.centerx = 1110
+    robot.rect.centery = 200
+
+    create_buff_boxes()
+
+    bullet_group.update()
+    secondGun_group.update()
+    explosion_group.update()
+    buff_boxes_group.update()
+    bullet_group.draw(SCREEN)
+    secondGun_group.draw(SCREEN)
+    explosion_group.draw(SCREEN)
+    buff_boxes_group.draw(SCREEN)
 
 # sprite grubu oluşturuldu (üretilen tüm mermi nesneleri bu grupta tutulacak)
 bullet_group = pygame.sprite.Group()
+
 secondGun_group = pygame.sprite.Group()
 explosion_group = pygame.sprite.Group()
 
 buff_boxes_group = pygame.sprite.Group()
+
 # geçici buff box oluşturma
-buff_box = BuffBox('Health', 100,260)
-buff_boxes_group.add(buff_box)
-buff_box = BuffBox('Ammo', 400,260)
-buff_boxes_group.add(buff_box)
-buff_box = BuffBox('Bomb', 500,260)
-buff_boxes_group.add(buff_box)
-buff_box = BuffBox('Defence', 600,260)
-buff_boxes_group.add(buff_box)
+def create_buff_boxes():
+    buff_box = BuffBox('Health', 560,160)
+    buff_boxes_group.add(buff_box)
+    buff_box = BuffBox('Ammo', 480,160)
+    buff_boxes_group.add(buff_box)
+    buff_box = BuffBox('Bomb', 640,160)
+    buff_boxes_group.add(buff_box)
+    buff_box = BuffBox('Defence', 720,160)
+    buff_boxes_group.add(buff_box)
+
+create_buff_boxes()
 
 #butonların oluşturulması
 start_button = button.Button(SCREEN_WIDTH//2-130,SCREEN_HEIGHT //2 - 150,start_img,1)
 exit_button = button.Button(SCREEN_WIDTH//2-130,SCREEN_HEIGHT //2 ,exit_img,1)
+restart_button = button.Button(SCREEN_WIDTH//2-130,SCREEN_HEIGHT //2 - 100 ,restart_img,1)
 
 
-soldier=Character(200,200,'soldier',5,False,1,soldier_bullet,20,5,grenade_img) #200 200 konumunu gösteriyor (sınıfın nesnesi)
-robot=Character(1000,200,'robot',5,True,-1,robot_bullet,15,5,bomb_robot_img)
+soldier=Character(90,200,'soldier',5,False,1,soldier_bullet,20,5,grenade_img)
+robot=Character(1110,200,'robot',5,True,-1,robot_bullet,20,5,bomb_robot_img)
 soldier_health_bar = HealthBar(100,33,soldier.health,soldier.health)
 robot_health_bar = HealthBar(905,33,robot.health,robot.health)
 
@@ -458,14 +498,14 @@ while run:
         #menu oluşturma
         SCREEN.fill(LIGHTGREEN)
         #add buttons
-        if start_button.draw(SCREEN):
+        if start_button.draw(SCREEN): # Button classından gelen action üzerinden true gelmişse
             start_game = True
         if exit_button.draw(SCREEN):
             run = False
     else:
         SCREEN.blit(background_img_fix, (0, 0))  # (0,0) resmin konumlanacağı nokta
 
-        #draw_gird()
+        # draw_grid()
         map.draw()
 
         #soldier verileri ekranda gösterme
@@ -485,21 +525,22 @@ while run:
         draw_text('AMMO: ', font, WHITE, 815, 60)
         for x in range(robot.ammo):
             SCREEN.blit(robot_bullet, (885 + (x * 10), 63))
-        draw_text('GRENADES: ', font, WHITE, 815, 85)
+        draw_text('BOMB: ', font, WHITE, 815, 85)
         for x in range(robot.grenades):
             SCREEN.blit(bomb_robot_img, (935 + (x * 14), 85))
-
-        soldier.update()
-        soldier.draw()
 
         bullet_group.update()
         secondGun_group.update()
         explosion_group.update()
         buff_boxes_group.update()
+
         bullet_group.draw(SCREEN)
         secondGun_group.draw(SCREEN)
         explosion_group.draw(SCREEN)
         buff_boxes_group.draw(SCREEN)
+
+        soldier.update()
+        soldier.draw()
 
         if soldier.alive:
             if soldier_shoot:
@@ -521,6 +562,11 @@ while run:
             else:
                 soldier.update_action(0) # eğer 0 ise duruyor
             soldier.move(soldier_moving_left,soldier_moving_right)
+        else:
+            if restart_button.draw(SCREEN):
+                restart_game()
+
+
 
 
         robot.update()
@@ -544,12 +590,16 @@ while run:
             else:
                 robot.update_action(0)  # eğer 0 ise duruyor
             robot.move(robot_moving_left,robot_moving_right)
+        else:
+            if restart_button.draw(SCREEN):
+                restart_game() # oyun verilerini updateledik
 
 
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             run = False
+
         #klavye hareketleri
         if event.type ==pygame.KEYDOWN:
             if event.key == pygame.K_a:
