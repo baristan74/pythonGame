@@ -1,5 +1,7 @@
 import pygame,os,button,map
+from pygame import mixer
 
+mixer.init()
 pygame.init()
 
 SCREEN_WIDTH =1200
@@ -23,7 +25,8 @@ GRAVITY = 0.75
 ROWS = 15
 COLS= 30
 SURFACE_SIZE = SCREEN_HEIGHT // ROWS
-start_game = False
+
+
 
 # oyuncu hareketlerinin değerlerini tanımlama
 soldier_moving_left = False
@@ -37,6 +40,22 @@ secondGun_soldier = False
 secondGun_soldier_thrown = False
 secondGun_robot_thrown = False
 
+start_game = False
+
+#ses dosyalarının yüklenmesi
+pygame.mixer.music.load('Assets/audio/music.mp3')
+pygame.mixer.music.set_volume(0.3)
+pygame.mixer.music.play(-1,0.0,5000)
+robot_shoot_effect=pygame.mixer.Sound('Assets/audio/robot.mp3')
+robot_shoot_effect.set_volume(0.5)
+soldier_shoot_effect=pygame.mixer.Sound('Assets/audio/soldier.mp3')
+soldier_shoot_effect.set_volume(0.5)
+bomb_explosion_effect=pygame.mixer.Sound('Assets/audio/bomb.mp3')
+bomb_explosion_effect.set_volume(0.5)
+game_over_effect=pygame.mixer.Sound('Assets/audio/game-over.mp3')
+game_over_effect.set_volume(0.5)
+
+#Buttun görünlülerinin yüklenmesi
 start_img = pygame.image.load(os.path.join('Assets/start_button.png')).convert_alpha()
 exit_img = pygame.image.load(os.path.join('Assets/exit_button.png')).convert_alpha()
 restart_img = pygame.image.load(os.path.join('Assets/restart_button.png')).convert_alpha()
@@ -45,11 +64,45 @@ restart_img = pygame.image.load(os.path.join('Assets/restart_button.png')).conve
 background_img = pygame.image.load(os.path.join('Assets/background.jpg')).convert_alpha()
 background_img_fix = pygame.transform.scale(background_img, (1200, 600)).convert_alpha()
 
+#mermi resimleri yüklenmesi
+robot_bullet = pygame.image.load(os.path.join('Assets/icons/robot_bullet.png')).convert_alpha()
+soldier_bullet = pygame.image.load(os.path.join('Assets/icons/soldier_bullet.png')).convert_alpha()
+grenade_img = pygame.image.load(os.path.join('Assets/icons/grenade.png')).convert_alpha()
+grenade_img = pygame.transform.scale(grenade_img, (12, 12)).convert_alpha()
+bomb_robot_img = pygame.image.load(os.path.join('Assets/icons/robot_bomb.png')).convert_alpha()
+bomb_robot_img = pygame.transform.scale(bomb_robot_img, (15, 15)).convert_alpha()
+
+#buff kutularının tanımlanması
+heal_box_img= pygame.image.load(os.path.join('Assets/icons/health.png')).convert_alpha()
+heal_box_img = pygame.transform.scale(heal_box_img, (20, 20)).convert_alpha()
+defence_box_img= pygame.image.load(os.path.join('Assets/icons/defence.png')).convert_alpha()
+defence_box_img = pygame.transform.scale(defence_box_img, (20, 20)).convert_alpha()
+ammo_box_img= pygame.image.load(os.path.join('Assets/icons/ammo.png')).convert_alpha()
+ammo_box_img = pygame.transform.scale(ammo_box_img, (20, 20)).convert_alpha()
+bomb_box_img= pygame.image.load(os.path.join('Assets/icons/bomb.png')).convert_alpha()
+bomb_box_img = pygame.transform.scale(bomb_box_img, (20, 20)).convert_alpha()
+
+
+#python sözlük kullanımı buff box için // javadaki enum gibi
+buff_boxes = {
+    'Health'   : heal_box_img,
+    'Ammo'     : ammo_box_img,
+    'Bomb'     : bomb_box_img,
+    'Defence'  : defence_box_img
+}
+
+
+font = pygame.font.SysFont('Future', 30)
+def draw_text(text, font, text_col, x, y): # ekrana yazmak istediğim yazılar için kullanıyorum
+    img = font.render(text, True, text_col)
+    SCREEN.blit(img, (x,y))
+
 # ekranı karelere bölme fonksiyonu
 # def draw_grid():
 #     for line in range(0,30):
 #         pygame.draw.line(SCREEN, (255, 255, 255), (0, line * SURFACE_SIZE), (SCREEN_WIDTH, line * SURFACE_SIZE))
 #         pygame.draw.line(SCREEN, (255, 255, 255), (line * SURFACE_SIZE, 0), (line * SURFACE_SIZE, SCREEN_HEIGHT))
+
 
 class Map():
     def __init__(self, data):
@@ -83,39 +136,6 @@ class Map():
             SCREEN.blit(surface[0], surface[1])
 
 map = Map(map.map_data)
-
-#mermi resimleri yüklenmesi
-robot_bullet = pygame.image.load(os.path.join('Assets/icons/robot_bullet.png')).convert_alpha()
-soldier_bullet = pygame.image.load(os.path.join('Assets/icons/soldier_bullet.png')).convert_alpha()
-grenade_img = pygame.image.load(os.path.join('Assets/icons/grenade.png')).convert_alpha()
-grenade_img = pygame.transform.scale(grenade_img, (12, 12)).convert_alpha()
-bomb_robot_img = pygame.image.load(os.path.join('Assets/icons/robot_bomb.png')).convert_alpha()
-bomb_robot_img = pygame.transform.scale(bomb_robot_img, (15, 15)).convert_alpha()
-
-#buff kutularının tanımlanması
-heal_box_img= pygame.image.load(os.path.join('Assets/icons/health.png')).convert_alpha()
-heal_box_img = pygame.transform.scale(heal_box_img, (20, 20)).convert_alpha()
-defence_box_img= pygame.image.load(os.path.join('Assets/icons/defence.png')).convert_alpha()
-defence_box_img = pygame.transform.scale(defence_box_img, (20, 20)).convert_alpha()
-ammo_box_img= pygame.image.load(os.path.join('Assets/icons/ammo.png')).convert_alpha()
-ammo_box_img = pygame.transform.scale(ammo_box_img, (20, 20)).convert_alpha()
-bomb_box_img= pygame.image.load(os.path.join('Assets/icons/bomb.png')).convert_alpha()
-bomb_box_img = pygame.transform.scale(bomb_box_img, (20, 20)).convert_alpha()
-
-#python sözlük kullanımı buff box için // javadaki enum gibi
-buff_boxes = {
-    'Health'   : heal_box_img,
-    'Ammo'     : ammo_box_img,
-    'Bomb'     : bomb_box_img,
-    'Defence'  : defence_box_img
-}
-
-font = pygame.font.SysFont('Future', 30)
-
-
-def draw_text(text, font, text_col, x, y): # ekrana yazmak istediğim yazılar için kullanıyorum
-    img = font.render(text, True, text_col)
-    SCREEN.blit(img, (x,y))
 
 
 character_width, character_height = 60, 40
@@ -388,9 +408,11 @@ class SecondGun(pygame.sprite.Sprite):
 
         #bombanın geri sayım sayacı
         self.timer -=1
+        #bombanın sayacı 0 lanmış ise bomba patlar
         if self.timer <=0:
             self.kill()
-            explosion = Explosion(self.rect.x, self.rect.y, 0.5) #explosion ve secondGun ile aralarındaki bağlantıyı kuruyorum
+            bomb_explosion_effect.play()
+            explosion = Explosion(self.rect.x, self.rect.y, 0.5) #explosion ve secondGun aralarındaki bağlantıyı kuruyorum
             explosion_group.add(explosion)
             # bombaların hasar vermesi  #abs fonksiyonu mutlak değerini aldırıyor
             if abs(self.rect.centerx - soldier.rect.centerx) < SURFACE_SIZE * 2 and \
@@ -428,7 +450,7 @@ class Explosion(pygame.sprite.Sprite):
                 self.image = self.images[self.index]
 def restart_game():
     start_game = False
-
+    pygame.mixer.music.play()
     soldier.alive = True
     robot.alive = True
     soldier.speed = 5
@@ -563,10 +585,10 @@ while run:
                 soldier.update_action(0) # eğer 0 ise duruyor
             soldier.move(soldier_moving_left,soldier_moving_right)
         else:
+            pygame.mixer.music.stop()
+            game_over_effect.play()
             if restart_button.draw(SCREEN):
                 restart_game()
-
-
 
 
         robot.update()
@@ -591,6 +613,8 @@ while run:
                 robot.update_action(0)  # eğer 0 ise duruyor
             robot.move(robot_moving_left,robot_moving_right)
         else:
+            pygame.mixer.music.stop()
+            game_over_effect.play()
             if restart_button.draw(SCREEN):
                 restart_game() # oyun verilerini updateledik
 
@@ -608,6 +632,7 @@ while run:
                 soldier_moving_right = True
             if event.key == pygame.K_LCTRL:
                 soldier_shoot = True
+                soldier_shoot_effect.play()
             if event.key == pygame.K_LSHIFT:
                 secondGun_soldier = True
             if event.key == pygame.K_w and soldier.alive:
@@ -619,6 +644,7 @@ while run:
                 robot_moving_right = True
             if event.key == pygame.K_RCTRL:
                 robot_shoot = True
+                robot_shoot_effect.play()
             if event.key == pygame.K_RSHIFT:
                 secondGun_robot = True
             if event.key == pygame.K_UP and robot.alive:
