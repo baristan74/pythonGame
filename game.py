@@ -43,7 +43,7 @@ secondGun_robot_thrown = False
 start_game = False
 
 #ses dosyalarının yüklenmesi
-pygame.mixer.music.load('Assets/audio/music.mp3')
+pygame.mixer.music.load('Assets/audio/clubbedtodeath.mp3')
 pygame.mixer.music.set_volume(0.3)
 pygame.mixer.music.play(-1,0.0,5000)
 robot_shoot_effect=pygame.mixer.Sound('Assets/audio/robot.mp3')
@@ -52,8 +52,6 @@ soldier_shoot_effect=pygame.mixer.Sound('Assets/audio/soldier.mp3')
 soldier_shoot_effect.set_volume(0.5)
 bomb_explosion_effect=pygame.mixer.Sound('Assets/audio/bomb.mp3')
 bomb_explosion_effect.set_volume(0.5)
-game_over_effect=pygame.mixer.Sound('Assets/audio/game-over.mp3')
-game_over_effect.set_volume(0.5)
 
 #Buttun görünlülerinin yüklenmesi
 start_img = pygame.image.load(os.path.join('Assets/start_button.png')).convert_alpha()
@@ -133,6 +131,7 @@ class Map():
 
     def draw(self):
         for surface in self.surface_list:
+            #Ekran üzerine fayansları çizdiriyorum
             SCREEN.blit(surface[0], surface[1])
 
 map = Map(map.map_data)
@@ -283,7 +282,7 @@ class Character(pygame.sprite.Sprite): #Character sınıfı tüm askerler için 
             self.update_action(3)
 
     def draw(self):
-        SCREEN.blit(pygame.transform.flip(self.SOLDIER_IMAGE, self.position,False), self.rect)
+        SCREEN.blit(pygame.transform.flip(self.SOLDIER_IMAGE, self.position,False), self.rect) # karakterlerin görüntülerinin ekranda düz durmasını sağlıyorum
 
 class BuffBox(pygame.sprite.Sprite):
     def __init__(self,box_type,x,y,):
@@ -291,6 +290,7 @@ class BuffBox(pygame.sprite.Sprite):
         self.box_type = box_type
         self.image = buff_boxes[self.box_type]
         self.rect= self.image.get_rect()
+        #fayans üzerinde konumu
         self.rect.midtop = (x + SURFACE_SIZE // 2, y + (SURFACE_SIZE - self.image.get_height()))
 
     def update(self):
@@ -323,7 +323,7 @@ class BuffBox(pygame.sprite.Sprite):
             self.kill() # çarpışmadan sonra kutuyu kaldır
 
 
-# sağlık bar sınıfı
+
 class HealthBar():
     def __init__(self,x,y,health,max_health):
         self.x = x
@@ -586,7 +586,6 @@ while run:
             soldier.move(soldier_moving_left,soldier_moving_right)
         else:
             pygame.mixer.music.stop()
-            game_over_effect.play()
             if restart_button.draw(SCREEN):
                 restart_game()
 
@@ -614,7 +613,6 @@ while run:
             robot.move(robot_moving_left,robot_moving_right)
         else:
             pygame.mixer.music.stop()
-            game_over_effect.play()
             if restart_button.draw(SCREEN):
                 restart_game() # oyun verilerini updateledik
 
